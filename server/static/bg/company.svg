@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b2545"/>
+      <stop offset="1" stop-color="#13315c"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="800" fill="url(#g)"/>
+  <polygon points="0,800 0,640 360,800" fill="#1d3557" opacity="0.7"/>
+  <polygon points="1280,0 1280,180 900,0" fill="#1d3557" opacity="0.5"/>
+  <circle cx="1140" cy="110" r="46" fill="none" stroke="#8ecae6" stroke-width="6" opacity="0.8"/>
+  <text x="64" y="110" font-family="Arial, sans-serif" font-size="34" font-weight="bold" fill="#8ecae6">ACME CORP</text>
+  <line x1="64" y1="140" x2="300" y2="140" stroke="#8ecae6" stroke-width="3"/>
+  <text x="64" y="760" font-family="Arial, sans-serif" font-size="22" fill="#a8dadc" opacity="0.85">Meeting Room Signage</text>
+</svg>

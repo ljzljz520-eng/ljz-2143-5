@@ -1,0 +1,17 @@
+{
+  "name": "meeting-room-sign",
+  "version": "1.0.0",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "build:c": "make -C c CC=gcc",
+    "test": "node --test test/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "会议室门牌系统：Web 预约/改期/签到 + C 显示端 + 关系库原子冲突检查",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
+  }
+}

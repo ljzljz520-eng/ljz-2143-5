@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>会议室预约 · Acme</title>
+<style>
+  :root { --bg:#0b2545; --card:#ffffff; --ink:#13315c; --muted:#5c6b80;
+    --ok:#2d6a4f; --warn:#e07a00; --err:#b00020; --line:#d8e0ea; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Segoe UI", "PingFang SC", sans-serif;
+    background:linear-gradient(135deg,#eef3fa,#dce7f4); color:var(--ink); }
+  header { background:var(--bg); color:#cdd9e8; padding:14px 24px; display:flex;
+    align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; color:#8ecae6; }
+  main { max-width:1200px; margin:20px auto; padding:0 16px; display:grid;
+    grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:900px){ main{ grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; box-shadow:0 1px 4px rgba(20,40,80,.06); }
+  .card h2 { margin:0 0 12px; font-size:15px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  input, select, button { font:inherit; padding:7px 9px; border:1px solid var(--line);
+    border-radius:8px; background:#fff; color:var(--ink); }
+  button { cursor:pointer; background:var(--bg); color:#fff; border:none; padding:8px 14px; }
+  button.ghost { background:#eaf0f8; color:var(--ink); }
+  button.danger { background:var(--err); }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+  .row > div { flex:1; min-width:120px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:99px; font-size:11px; color:#fff; }
+  .tag.booked{ background:#3a6ea5;} .tag.checked_in{ background:var(--ok);}
+  .tag.cancelled{ background:#888;} .tag.occupied{ background:var(--warn);}
+  .tag.free{ background:var(--ok);} .tag.stale{ background:var(--err);} .tag.fresh{ background:var(--ok);}
+  .muted { color:var(--muted); font-size:12px; }
+  .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+  .toast { position:fixed; right:18px; bottom:18px; max-width:420px; }
+  .toast div { background:#13315c; color:#fff; padding:10px 14px; border-radius:10px;
+    margin-top:8px; font-size:13px; white-space:pre-wrap; }
+  .toast .e{ background:var(--err); } .toast .o{ background:var(--ok); }
+  .full{ grid-column:1 / -1; }
+  .preview { position:relative; width:100%; aspect-ratio:16/10; border-radius:10px;
+    overflow:hidden; background:#102033; color:#fff; }
+  .preview img.bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+    opacity:.55; }
+  .preview .overlay { position:absolute; inset:0; padding:22px 26px; display:flex;
+    flex-direction:column; }
+  .preview .big { font-size:44px; font-weight:800; margin-top:10px; }
+  .preview .sub { opacity:.85; }
+  .preview .bgfail { position:absolute; left:0; right:0; bottom:0; background:rgba(176,0,32,.85);
+    padding:6px 12px; font-size:12px; }
+  .amb-note { background:#fff4e0; border:1px solid #f0c98a; color:#8a5000; padding:8px 10px;
+    border-radius:8px; font-size:12px; margin-top:8px; display:none; }
+  details summary { cursor:pointer; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏢 会议室门牌预约</h1>
+  <label style="color:#cdd9e8;margin:0">身份
+    <select id="token">
+      <option value="tok-alice">alice（管理员）</option>
+      <option value="tok-bob">bob</option>
+      <option value="tok-carol" selected>carol</option>
+      <option value="tok-dave">dave</option>
+      <option value="tok-erin">erin（模板编辑）</option>
+    </select>
+  </label>
+  <span id="sse-state" class="tag free">实时 ●</span>
+  <span class="muted" style="color:#90a0b8">时间边界：区间 [开始, 结束)，相邻不冲突；存储一律 UTC ms</span>
+</header>
+
+<main>
+  <section class="card">
+    <h2>预约 / 改期</h2>
+    <div class="row">
+      <div>
+        <label>房间</label>
+        <select id="room"></select>
+      </div>
+      <div><label>日期（房间本地）</label><input id="date" type="date"></div>
+      <div><label>开始 HH:MM</label><input id="start" placeholder="09:00"></div>
+      <div><label>结束 HH:MM</label><input id="end" placeholder="10:00"></div>
+    </div>
+    <div class="row">
+      <div style="flex:2"><label>主题</label><input id="topic" placeholder="周会 / 客户评审…"></div>
+      <div><label>秋季重复时刻消歧</label>
+        <select id="disamb"><option value="">自动(非重复日忽略)</option>
+          <option value="earlier">earlier（夏令时那次）</option>
+          <option value="later">later（冬令时那次）</option></select></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label><button id="book">预约</button></div>
+    </div>
+    <div id="amb-note" class="amb-note"></div>
+    <p class="muted">春季跳时缺口（如纽约 02:30 不存在）服务端会返回 400；秋季重复时刻须选择消歧。</p>
+  </section>
+
+  <section class="card">
+    <h2>门牌实时预览（设备显示 + 新鲜度）</h2>
+    <div class="preview" id="preview">
+      <img class="bg" id="bg" alt="" onerror="onBgError()" onload="onBgLoad()">
+      <div class="overlay">
+        <div id="pv-room" style="font-size:20px;font-weight:700"></div>
+        <div class="row" style="margin-top:6px">
+          <span id="pv-status" class="tag free">空闲</span>
+          <span id="pv-fresh" class="tag stale">设备离线</span>
+          <span id="pv-clock" class="mono sub"></span>
+        </div>
+        <div id="pv-topic" class="big"></div>
+        <div id="pv-time" class="sub"></div>
+        <div id="pv-next" class="muted" style="margin-top:auto"></div>
+      </div>
+      <div class="bgfail" id="bgfail" style="display:none">⚠ 背景素材加载失败——房间当前状态仍正常显示（状态层不依赖背景）</div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" id="refresh-disp">刷新门牌状态</button>
+      <label style="display:flex;align-items:center;gap:6px;margin:0">
+        <input type="checkbox" id="sim-bg-fail"> 模拟背景 URL 503</label>
+    </div>
+    <div id="disp-meta" class="mono muted" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card full">
+    <h2>预约事实（服务端权威列表）</h2>
+    <table>
+      <thead><tr><th>#</th><th>房间</th><th>主题</th><th>本地开始/结束</th><th>UTC 区间（半开）</th>
+        <th>状态</th><th>版本</th><th>操作</th></tr></thead>
+      <tbody id="meetings"></tbody>
+    </table>
+    <div class="muted" id="fact-note" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <h2>改期 / 延长（针对选中会议）</h2>
+    <div class="row">
+      <div><label>会议 ID</label><input id="m-id" style="width:90px"></div>
+      <div><label>新日期</label><input id="m-date" type="date"></div>
+      <div><label>新开始</label><input id="m-start"></div>
+      <div><label>新结束</label><input id="m-end"></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label><button id="resched">改期</button></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div><label>临时延长分钟数（重新检查下一场）</label><input id="ext-min" type="number" value="15" style="width:110px"></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" id="extend">延长</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>管理 / 隐私 / 权限</h2>
+    <div class="row">
+      <div style="flex:0 0 auto"><label>门牌隐私</label>
+        <select id="privacy"><option value="normal">显示完整主题</option>
+          <option value="private">只显示“使用中”</option></select></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label><button class="ghost" id="set-privacy">应用</button></div>
+      <div style="flex:0 0 auto"><label>回收令牌</label>
+        <input id="revoke-tok" placeholder="tok-dave" style="width:130px"></div>
+      <div style="flex:0 0 auto"><label>&nbsp;</label><button class="danger" id="revoke">回收</button></div>
+    </div>
+    <details style="margin-top:10px"><summary>为什么模板编辑者看不到会议详情？</summary>
+      <p class="muted">模板表只存背景地址与排版 JSON，不含任何会议字段；<code>/api/templates</code>
+      不返回 meetings。编辑模板的权限与读取会议的权限相互独立。门牌隐私开启后，连门牌视图本身也剥离主题。</p></details>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let rooms = [], curRoom = null, sseSeq = 0, lastState = null;
+const statusZh = { booked:'已预约', checked_in:'已签到', cancelled:'已撤销',
+  free:'空闲', occupied:'使用中（未签到）', occupied_checkedin:'使用中' };
+
+function token(){ return $('token').value; }
+function toast(msg, kind){ const d=document.createElement('div'); if(kind)d.className=kind;
+  d.textContent=msg; $('toast').appendChild(d); setTimeout(()=>d.remove(),6000); }
+
+async function api(path, opts={}){
+  const res = await fetch(path, { method:opts.method||'GET',
+    headers:Object.assign({'content-type':'application/json'},
+      token()?{authorization:'Bearer '+token()}:{}),
+    body: opts.body?JSON.stringify(opts.body):undefined });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok){ const e = new Error((data&&data.message)||res.status); e.data=data; e.status=res.status; throw e; }
+  return data;
+}
+
+async function loadRooms(){
+  const d = await api('/api/rooms'); rooms = d.rooms;
+  $('room').innerHTML = rooms.map(r=>`<option value="${r.id}">${r.name} · ${r.tz} · ${r.checkin_policy==='offline_allowed'?'可离线签到':'仅在线'}</option>`).join('');
+  curRoom = rooms[0]; $('date').value = new Date().toISOString().slice(0,10);
+  $('m-date').value = $('date').value;
+}
+function curRoomId(){ return +$('room').value; }
+
+function fmtMs(ms){ return new Date(ms).toISOString().replace('.000Z','Z'); }
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function loadMeetings(){
+  const r = rooms.find(x=>x.id===curRoomId()) || rooms[0];
+  const d = await api(`/api/rooms/${r.id}/meetings`);
+  $('fact-note').textContent = `区间约定：${d.interval} ｜ 服务器时间 ${fmtMs(d.serverMs)} ｜ 房间时区 ${d.room.tz}`;
+  $('meetings').innerHTML = d.meetings.map(m=>`
+    <tr><td>${m.id}</td><td>${esc(d.room.code)}</td>
+      <td>${esc(m.topic)}</td>
+      <td>${m.localStart.date} ${m.localStart.time}–${m.localEnd.time} (${m.localStart.gmt})</td>
+      <td class="mono">[${fmtMs(m.startMs)}, ${fmtMs(m.endMs)})</td>
+      <td><span class="tag ${m.status}">${statusZh[m.status]||m.status}</span></td>
+      <td>v${m.version}</td>
+      <td>
+        <button class="ghost" onclick="fillMeet(${m.id})">选</button>
+        <button class="ghost" onclick="checkin(${m.id})">签到</button>
+        <button class="danger" onclick="cancelM(${m.id})">撤销</button>
+      </td></tr>`).join('') || '<tr><td colspan="8" class="muted">无会议</td></tr>';
+  // 房间策略同步到隐私控件展示
+}
+window.fillMeet = (id)=>{ $('m-id').value=id; };
+window.checkin = async (id)=>{
+  try{ const d = await api(`/api/meetings/${id}/checkin`,{method:'POST',body:{}});
+    toast('签到成功 meeting '+id+'（v'+d.meeting.version+'）','o');
+  }catch(e){ toast('签到失败：'+e.data.error+' — '+e.message,'e'); }
+};
+window.cancelM = async (id)=>{
+  try{ await api(`/api/meetings/${id}/cancel`,{method:'POST',body:{}});
+    toast('已撤销 '+id,'o'); }catch(e){ toast(e.message,'e'); }
+};
+
+$('book').onclick = async ()=>{
+  const body = { date:$('date').value, startLocal:$('start').value, endLocal:$('end').value,
+    topic:$('topic').value, startDisambiguation:$('disamb').value||undefined,
+    endDisambiguation:$('disamb').value||undefined };
+  try{ const d = await api(`/api/rooms/${curRoomId()}/meetings`,{method:'POST',body});
+    toast(`预约成功 #${d.meeting.id} v${d.meeting.version}\n本地 ${d.meeting.localStart.date} ${d.meeting.localStart.time} ${d.meeting.localStart.gmt}\nUTC [${fmtMs(d.meeting.startMs)}, ${fmtMs(d.meeting.endMs)})`,'o');
+    loadMeetings(); refreshDisplay();
+  }catch(e){
+    if(e.data && e.data.error==='ZONE_TIME_AMBIGUOUS'){
+      toast('该时刻在秋季重复出现：请在“重复时刻消歧”选择 earlier/later','e');
+    } else toast('预约失败 ['+(e.data&&e.data.error)+'] '+e.message,'e');
+  }
+};
+$('resched').onclick = async ()=>{
+  const id=+$('m-id').value; if(!id) return toast('先选择会议 ID');
+  const r = rooms.find(x=>x.id===curRoomId()) || rooms[0];
+  try{
+    // 先取房间时区，把墙上时间交给服务端解析（冲突在服务端原子判定）
+    const d = await api(`/api/meetings/${id}/reschedule`,{method:'POST',
+      body:{ date:$('m-date').value, startLocal:$('m-start').value, endLocal:$('m-end').value,
+        startDisambiguation:$('disamb').value||undefined,
+        endDisambiguation:$('disamb').value||undefined }});
+    toast(`改期成功 #${id} v${d.meeting.version} -> ${d.meeting.localStart.date} ${d.meeting.localStart.time}`,'o');
+    loadMeetings(); refreshDisplay();
+  }catch(e){ toast('改期失败 ['+(e.data&&e.data.error)+'] '+e.message,'e'); }
+};
+$('extend').onclick = async ()=>{
+  const id=+$('m-id').value; if(!id) return toast('先选择会议 ID');
+  try{ const d = await api(`/api/meetings/${id}/extend`,{method:'POST',
+      body:{ minutes:+$('ext-min').value }});
+    toast(`已延长至 ${d.meeting.localEnd.date} ${d.meeting.localEnd.time}（服务端已重新检查下一场）`,'o');
+    loadMeetings(); refreshDisplay();
+  }catch(e){ toast('延长失败 ['+(e.data&&e.data.error)+'] '+e.message,'e'); }
+};
+$('set-privacy').onclick = async ()=>{
+  try{ await api(`/api/admin/rooms/${curRoomId()}/privacy`,{method:'POST',
+    body:{ privacy:$('privacy').value }});
+    toast('隐私设置已更新','o'); refreshDisplay();
+  }catch(e){ toast(e.message,'e'); }
+};
+$('revoke').onclick = async ()=>{
+  try{ await api('/api/admin/tokens/'+encodeURIComponent($('revoke-tok').value),{method:'DELETE'});
+    toast('令牌已回收：该用户后续请求立即 401','o'); }catch(e){ toast(e.message,'e'); }
+};
+
+// ---- 门牌显示状态 + 新鲜度（网页显示设备显示新鲜度）----
+function onBgError(){ $('bgfail').style.display='block'; }
+function onBgLoad(){ $('bgfail').style.display='none'; }
+async function refreshDisplay(){
+  const r = rooms.find(x=>x.id===curRoomId()) || rooms[0];
+  // 不带 deviceMs：这里是“网页查看设备状态”；设备本身由 C 客户端轮询上报心跳
+  const d = await api(`/api/displays/${r.id}/state`);
+  lastState = d;
+  $('pv-room').textContent = r.name;
+  const st = $('pv-status'); st.className='tag '+d.status; st.textContent=statusZh[d.status]||d.status;
+  $('pv-topic').textContent = d.meeting ? (d.meeting.private ? '使用中' : d.meeting.topic) : '';
+  $('pv-time').textContent = d.meeting
+    ? `${new Date(d.meeting.startMs).toLocaleString()} – ${new Date(d.meeting.endMs).toLocaleString()}` : '';
+  $('pv-next').textContent = d.next ? `下一场：${d.next.private?'（已隐藏）':d.next.topic} · ${new Date(d.next.startMs).toLocaleTimeString()}` : '';
+  const f = $('pv-fresh');
+  f.className = 'tag ' + (d.display.fresh?'fresh':'stale');
+  f.textContent = d.display.lastSeenMs ? `设备 ${Math.round(d.display.ageMs/1000)}s 前在线` : '设备从未上线';
+  $('pv-clock').textContent = d.display.clockOffsetMs!=null
+    ? `设备时钟偏差 ${d.display.clockOffsetMs} ms（服务器-设备）` : '';
+  $('disp-meta').textContent = JSON.stringify({status:d.status,privacy:d.privacy,
+    serverMs:new Date(d.serverMs).toISOString(), display:d.display,
+    template:d.template&&d.template.backgroundUrl}, null, 1);
+  // 背景层失败不得遮挡状态层：<img> 在底层，状态文字独立于它
+  const url = d.template ? d.template.backgroundUrl : '';
+  $('bg').src = url + (url.includes('?')?'&':'?') + 'cb=' + (d.template&&d.template.id);
+  $('privacy').value = d.privacy;
+}
+$('refresh-disp').onclick = refreshDisplay;
+$('room').onchange = ()=>{ loadMeetings(); refreshDisplay(); };
+$('sim-bg-fail').onchange = async (e)=>{
+  const url = lastState && lastState.template ? lastState.template.backgroundUrl : null;
+  await api('/api/admin/fail-background',{method:'POST',body:{url, enabled:e.target.checked}});
+  refreshDisplay();
+};
+
+// ---- SSE：乱序/重复事件靠服务端单调 seq 去重，不回退界面 ----
+function connectSSE(){
+  const es = new EventSource('/api/events?afterSeq='+sseSeq);
+  es.addEventListener('hello', ()=>{ $('sse-state').className='tag fresh'; $('sse-state').textContent='实时 ●'; });
+  for (const k of ['meeting.booked','meeting.rescheduled','meeting.extended',
+      'meeting.cancelled','meeting.checked_in']) {
+    es.addEventListener(k, (ev)=>{
+      const data = JSON.parse(ev.data);
+      if (data.seq <= sseSeq) return;      // 乱序/重放的旧事件直接丢弃
+      sseSeq = data.seq;
+      toast(`事件 #${data.seq} ${data.kind}`);
+      loadMeetings(); refreshDisplay();
+    });
+  }
+  es.onerror = ()=>{ $('sse-state').className='tag stale'; $('sse-state').textContent='重连中…'; };
+}
+
+(async function init(){
+  try{ await loadRooms(); await loadMeetings(); await refreshDisplay(); connectSSE();
+    setInterval(()=>{ loadMeetings(); refreshDisplay(); }, 15000);
+  }catch(e){ toast('初始化失败 '+e.message,'e'); }
+})();
+</script>
+</body>
+</html>

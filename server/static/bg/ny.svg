@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <rect width="1280" height="800" fill="#081c15"/>
+  <rect y="560" width="1280" height="240" fill="#1b4332"/>
+  <polygon points="0,560 160,420 300,560 470,380 640,560 820,430 980,560 1150,400 1280,560 1280,800 0,800" fill="#2d6a4f" opacity="0.8"/>
+  <text x="64" y="110" font-family="Arial, sans-serif" font-size="34" font-weight="bold" fill="#95d5b2">ACME · NEW YORK</text>
+</svg>
