@@ -1,0 +1,17 @@
+{
+  "name": "meeting-door",
+  "version": "1.0.0",
+  "description": "Meeting room door sign: web reservations, rescheduling, check-in, and privacy-aware C display client",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "11.10.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

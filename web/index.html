@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>会议室门牌</title><link rel="stylesheet" href="/web/styles.css"></head>
+<body>
+<header><div><strong>会议室预约与门牌系统</strong><span class="muted" style="color:#cfe5ff;margin-left:12px">UTC 为事实时间，本地时间仅为表示</span></div><div id="userBox"></div></header>
+<main>
+  <section class="grid">
+    <div class="card">
+      <h2 id="authTitle">登录</h2>
+      <div id="loginForm">
+        <label>邮箱</label><input id="email" value="alice@example.com" autocomplete="username">
+        <label>密码</label><input id="password" value="password123" type="password" autocomplete="current-password">
+        <button id="loginBtn">登录</button>
+        <p class="muted">示例：alice@example.com/password123；admin@example.com/password123；editor@example.com/editor123</p>
+      </div>
+      <div id="bookingForm" hidden>
+        <h2>预约</h2>
+        <label>房间</label><select id="roomId"></select>
+        <label>主题</label><input id="subject" value="项目评审">
+        <label>开始（房间本地墙钟）</label><input id="startLocal" placeholder="2026-11-01T10:00">
+        <label>结束（半开区间 [开始, 结束)）</label><input id="endLocal" placeholder="2026-11-01T11:00">
+        <label>夏令时重复小时</label><select id="dstOccurrence"><option value="first">第一次（偏移较大/夏令时）</option><option value="second">第二次（偏移较小/标准时）</option></select>
+        <label>门牌隐私</label><select id="privacy"><option value="busy_only">仅占用（默认）</option><option value="full_subject">显示完整主题</option><option value="inherit">跟随房间默认</option></select>
+        <button id="bookBtn">创建预约事实</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>房间与设备</h2><span id="clock"></span></div>
+      <div id="rooms"></div>
+    </div>
+  </section>
+  <section class="card">
+    <div class="row" style="justify-content:space-between"><h2>预约事实</h2><span><button id="refreshBtn" class="secondary">刷新</button> <button id="pushBtn" class="secondary">模拟乱序推送</button></span></div>
+    <div id="meetings"></div>
+  </section>
+  <section id="admin" class="card" hidden>
+    <h2>管理 / 设备与模板</h2>
+    <div class="row">
+      <select id="adminRoom"></select>
+      <select id="offlinePolicy"><option value="cache_view_only">离线只查看缓存</option><option value="offline_checkin_allowed">离线可签到</option></select>
+      <input id="deviceName" placeholder="门牌名称" style="max-width:180px">
+      <button id="registerDeviceBtn">注册门牌</button>
+    </div>
+    <p class="muted">模板编辑账号可调用模板更新接口，但返回和页面均不包含会议详情。</p>
+    <button id="templateBtn" class="secondary">模拟编辑模板 URL</button>
+    <div id="deviceToken" class="fact" style="margin-top:10px"></div>
+  </section>
+</main><script src="/web/app.js"></script></body></html>
